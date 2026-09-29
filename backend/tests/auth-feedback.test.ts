@@ -638,7 +638,7 @@ test("管理员可使用便签服务、创建用户且各账号云工作区严�
     assert.equal(aliceDraftArticle.title, "Alice 的公众号草稿");
     assert.equal(
       (aliceDraftArticle.content.match(
-        /<p style="margin:0;line-height:0\.704em">\u00a0<\/p>/g,
+        /<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/g,
       ) ?? []).length,
       5,
       "实际提交给微信的草稿应保留正文和小标题两侧的每一个空行",
@@ -700,7 +700,7 @@ test("管理员可使用便签服务、创建用户且各账号云工作区严�
       }
     ).articles[0];
     assert.equal(compactLongDraftArticle.title, "程序员狠话｜长度回归");
-    assert.ok(Array.from(compactLongDraftArticle.content).length < 14_000);
+    assert.ok(Array.from(compactLongDraftArticle.content).length < 16_000);
     assert.match(compactLongDraftArticle.content, /items\/10/);
 
     const gifMetadata = await sharp(twoFrameGif, { animated: true }).metadata();

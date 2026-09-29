@@ -576,7 +576,7 @@ test("Express 提供健康检查和内容寻址图片存储", async (context) =>
     );
     assert.match(
       wechat.html,
-      /<p style="margin:0;line-height:0\.704em">\u00a0<\/p>/,
+      /<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/,
     );
     assert.doesNotMatch(wechat.html, /<span style="display:block;height:0\.704em"><\/span>/);
     assert.match(
@@ -623,6 +623,12 @@ test("Express 提供健康检查和内容寻址图片存储", async (context) =>
     assert.match(wechat.html, new RegExp(qiniuImageUrl.replace(/\./g, "\\.")));
     assert.match(wechat.html, /由 API 自定义发送/);
     assert.match(wechat.html, /via API Feedback/);
+    assert.ok(
+      (wechat.html.match(
+        /<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/g,
+      ) ?? []).length >= 3,
+      "复制到公众号返回的 HTML 应为 Markdown 空行保留完整行高",
+    );
     assert.match(
       wechat.html,
       /<section data-smartisan-footer="true" style="[^"]*margin:42px 14px 0[^"]*font-size:0[^"]*line-height:14\.336px/,
@@ -701,7 +707,7 @@ test("Express 提供健康检查和内容寻址图片存储", async (context) =>
     assert.match(telegraphWechat.html, /data-note-card-theme="telegraph"/);
     assert.match(telegraphWechat.html, /font-size:18px/);
     assert.match(telegraphWechat.html, /line-height:1\.58/);
-    assert.match(telegraphWechat.html, /height:0\.667em/);
+    assert.match(telegraphWechat.html, /min-height:28\.44px;line-height:28\.44px/);
     assert.match(telegraphWechat.html, /border-left:3px solid #000000/);
     assert.doesNotMatch(
       telegraphWechat.html,

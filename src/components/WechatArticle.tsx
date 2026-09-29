@@ -44,10 +44,12 @@ const quoteIndent = "18px";
 const bearBlockGap = "0.704em";
 const bazhaheiBlockGap = "0.8em";
 const telegraphBlockGap = "0.667em";
+// 用不可见的非空白字符撑起完整行盒，避免富文本粘贴把空行当作纯空白段落。
+const wechatBlankLineContent = "\u2800";
 
 interface WechatRenderContext {
   baseHeadingStyle: CSSProperties;
-  blockGap: string;
+  blankParagraphStyle: CSSProperties;
   bodyFontSize: string;
   bodyLineHeight: number;
   bodyParagraphStyle: CSSProperties;
@@ -64,13 +66,10 @@ function createWechatRenderContext(
   const isBear = themeStyle.layout === "bear";
   const isBazhahei = themeStyle.layout === "bazhahei";
   const isTelegraph = themeStyle.layout === "telegraph";
-  const bodyFontSize = isTelegraph ? "18px" : "15px";
+  const bodyFontSizePx = isTelegraph ? 18 : 15;
+  const bodyFontSize = `${bodyFontSizePx}px`;
   const bodyLineHeight = isTelegraph ? 1.58 : isBear ? 1.755 : isBazhahei ? 1.8 : 1.75;
-  const blockGap = isTelegraph
-    ? telegraphBlockGap
-    : isBazhahei
-      ? bazhaheiBlockGap
-      : bearBlockGap;
+  const blankLineHeight = `${Number((bodyFontSizePx * bodyLineHeight).toFixed(2))}px`;
   const letterSpacing =
     isBear || isBazhahei || isTelegraph
       ? "0"
@@ -82,7 +81,13 @@ function createWechatRenderContext(
   return {
     colors,
     themeStyle,
-    blockGap,
+    blankParagraphStyle: {
+      margin: "0",
+      minHeight: blankLineHeight,
+      lineHeight: blankLineHeight,
+      fontSize: bodyFontSize,
+      fontWeight: 400,
+    },
     bodyFontSize,
     bodyLineHeight,
     letterSpacing,
@@ -170,7 +175,7 @@ function createMarkdownComponents(
 ): Components {
   const {
     baseHeadingStyle,
-    blockGap,
+    blankParagraphStyle,
     bodyFontSize,
     bodyLineHeight,
     bodyParagraphStyle,
@@ -269,8 +274,8 @@ function createMarkdownComponents(
 
     if (isBlankLine) {
       return (
-        <p style={{ margin: "0", lineHeight: blockGap, ...style }}>
-          {MARKDOWN_BLANK_LINE}
+        <p style={{ ...blankParagraphStyle, ...style }}>
+          {wechatBlankLineContent}
         </p>
       );
     }
@@ -539,8 +544,8 @@ function WechatSectionContent({
 
   const blankParagraphs = (count: number) =>
     Array.from({ length: count }, (_, index) => (
-      <p key={index} style={{ margin: "0", lineHeight: context.blockGap }}>
-        {MARKDOWN_BLANK_LINE}
+      <p key={index} style={context.blankParagraphStyle}>
+        {wechatBlankLineContent}
       </p>
     ));
   const body = lines.slice(firstBodyLine, lastBodyLine).join("\n");

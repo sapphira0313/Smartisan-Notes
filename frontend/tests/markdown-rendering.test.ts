@@ -739,7 +739,10 @@ test("WechatArticle 为 Telegra.ph 保留原站正文节奏与引用线", () => 
   assert.match(html, /data-note-card-theme="telegraph"/);
   assert.match(html, /font-size:18px;[^\"]*line-height:1\.58/);
   assert.match(html, /line-height:1\.0625;[^\"]*font-size:32px/);
-  assert.match(html, /height:0\.667em/);
+  assert.match(
+    html,
+    /<p style="margin:0;min-height:28\.44px;line-height:28\.44px;font-size:18px;font-weight:400">\u2800<\/p>/,
+  );
   assert.match(html, /border-bottom:0\.1em solid rgba\(0,0,0,0\.7\)/);
   assert.match(html, /margin:18px 21px 16px 6px/);
   assert.match(html, /padding:0 0 0 15px/);
@@ -808,8 +811,8 @@ test("WechatArticle 长文只在段落重复微信需要的行高且不超过长
   );
 
   assert.ok(
-    Array.from(html).length < 14_000,
-    `保留小标题两侧空行后，十节长文的公众号 HTML 应少于 1.4 万字符，实际为 ${Array.from(html).length}`,
+    Array.from(html).length < 16_000,
+    `使用完整行高保留空行后，十节长文的公众号 HTML 应少于 1.6 万字符，实际为 ${Array.from(html).length}`,
   );
   assert.equal((html.match(/<h2\b/g) ?? []).length, 10);
   assert.equal((html.match(/<blockquote\b/g) ?? []).length, 10);
@@ -844,10 +847,10 @@ test("WechatArticle 只为 Bear 收紧分节间隔并保持既有空行", () => 
     }),
   );
 
-  assert.match(bearHtml, /<p style="margin:0;line-height:0\.704em">\u00a0<\/p>/);
+  assert.match(bearHtml, /<p style="margin:0;min-height:26\.32px;line-height:26\.32px;font-size:15px;font-weight:400">\u2800<\/p>/);
   assert.match(bearHtml, /margin:0\.704em 0 0/);
   assert.match(bearHtml, /margin:0 0 0\.704em/);
-  assert.match(defaultHtml, /<p style="margin:0;line-height:0\.704em">\u00a0<\/p>/);
+  assert.match(defaultHtml, /<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/);
   assert.doesNotMatch(defaultHtml, /margin:0\.704em 0 0/);
   assert.doesNotMatch(defaultHtml, /margin:0 0 0\.704em/);
 });
@@ -864,7 +867,7 @@ test("WechatArticle 连续空行有可保留的内容且正文与粗体字重分
   );
 
   assert.equal(
-    (html.match(/<p style="margin:0;line-height:0\.704em">\u00a0<\/p>/g) ?? [])
+    (html.match(/<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/g) ?? [])
       .length,
     2,
   );
@@ -887,8 +890,24 @@ test("WechatArticle 保留公众号草稿中小标题两侧的连续空行", () 
   );
 
   assert.equal(
-    (html.match(/<p style="margin:0;line-height:0\.704em">\u00a0<\/p>/g) ?? [])
+    (html.match(/<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/g) ?? [])
       .length,
     4,
   );
+});
+
+test("WechatArticle 区分单次换行与真正的 Markdown 空行", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "换行与空行测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "第一行\n第二行\n\n第三行",
+      theme: "default",
+    }),
+  );
+
+  assert.match(html, /第一行<\/p>\s*<p style="margin:0;line-height:1\.75;font-weight:400">第二行<\/p>/);
+  assert.equal((html.match(/>\u2800<\/p>/g) ?? []).length, 1);
+  assert.match(html, /第二行<\/p>\s*<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>\s*<p style="margin:0;line-height:1\.75;font-weight:400">第三行<\/p>/);
 });
