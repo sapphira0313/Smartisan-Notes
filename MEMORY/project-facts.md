@@ -2,6 +2,13 @@
 
 本文件只记录已从代码或 feedback 测试中确认、预计会影响后续任务的信息。临时调试输出和未经验证的推测不写入这里。
 
+## 2026-09-29：公众号空行按完整正文行高保留
+
+- `POST /api/wechat` 与 `POST /api/wechat/draft` 共用 `WechatArticle`。普通单次换行仍按普通正文处理；每个 Markdown 空行输出一个带 U+2800 字符、明确正文行高与正常字重的 `p`。默认主题空行高 `26.25px`，Telegra.ph 为 `28.44px`。
+- 前端 123 项、后端 15 项、DSH 插件 17 项反馈测试及完整构建通过。线上 `POST /api/wechat` 对“单次换行 + 一个空行”的无图示例返回一个完整行高空段落。发布前以同结构合成 HTML 调用微信草稿 add/get，回读仍保留 5 个空行段落和行高样式，并删除临时草稿；公众号网页编辑器的视觉效果未获验证。
+- 发布版本 `1.10.6` 与提交 `9936ee423b2495f1e8581f71fa48a4970cb818ee` 已在生产。后端镜像 `e4d6454bef272dfd8a4665834f7fce0257929a5020ca4f2df2cbc7327a493eed`，前端镜像 `f29da32d564eb05750e4fc717737bfe20bdf7a31655d7f6346849b91cbe68803`。回滚版本为 `1.10.5`。
+- 发布前 `storage/images` 与 `storage/data` 备份：`/home/hermes/backups/notes/releases/1.10.6-20260929T-predeploy-storage.tar.gz`，SHA-256 `fab4141f8d87d5412b34e355fb421123a71ce1837d82b0c68896b35e037f76a3`。本机和公网健康检查均返回 `{"ok":true}`，`/changelog` 为 HTTP 200 且前端资源含 `1.10.6`，匿名 PNG 导出得到 `1980 × 1089` 图片。前端 Compose 构建的 npm 安装持续约 11 分钟无输出，改用相同 Dockerfile 与 `docker build --network=host` 后 7 秒完成依赖安装。
+
 ## 2026-09-12：主项目许可证
 
 - 主项目自有代码采用 Apache-2.0；根目录 `LICENSE` 使用 Apache 官网标准正文，`NOTICE` 记录项目版权声明，根包与锁文件同步声明许可证。
