@@ -626,9 +626,10 @@ test("Express 提供健康检查和内容寻址图片存储", async (context) =>
     assert.ok(
       (wechat.html.match(
         /<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>/g,
-      ) ?? []).length >= 3,
-      "复制到公众号返回的 HTML 应为 Markdown 空行保留完整行高",
+      ) ?? []).length >= 1,
+      "复制到公众号返回的 HTML 应为非列表 Markdown 空行保留完整行高",
     );
+    assert.doesNotMatch(wechat.html, /<li[^>]*>\s*(?:<p[^>]*>)?\u2800/);
     assert.match(
       wechat.html,
       /<section data-smartisan-footer="true" style="[^"]*margin:42px 14px 0[^"]*font-size:0[^"]*line-height:14\.336px/,

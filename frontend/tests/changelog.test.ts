@@ -34,7 +34,7 @@ test("CHANGELOG 使用固定的人类可读格式记录未发布与正式版本"
   assert.match(changelog, /^# 更新日志\n/);
   assert.equal(
     secondLevelHeadings[latestReleaseIndex],
-    `[${packageVersion.version}] - 2026-09-29`,
+    `[${packageVersion.version}] - 2026-10-02`,
   );
   assert.ok(categoryHeadings.length > 0);
 
@@ -133,7 +133,7 @@ test("changelog 解析器保留便签分节并解析版本比较链接", () => {
   const sections = getChangelogSections(changelog);
   const hasUnreleasedSection = /^## \[未发布\]/m.test(changelog);
   const currentReleaseSectionIndex = hasUnreleasedSection ? 2 : 1;
-  const draftReleaseSectionIndex = currentReleaseSectionIndex + 3;
+  const draftReleaseSectionIndex = currentReleaseSectionIndex + 4;
   const frameReleaseSectionIndex = draftReleaseSectionIndex + 1;
   const gifReleaseSectionIndex = frameReleaseSectionIndex + 1;
   const previousReleaseSectionIndex = gifReleaseSectionIndex + 1;
@@ -149,13 +149,22 @@ test("changelog 解析器保留便签分节并解析版本比较链接", () => {
   }
   assert.equal(
     sections[currentReleaseSectionIndex]?.heading,
-    "[1.10.6](https://github.com/zhaoolee/notes/compare/1.10.5...1.10.6) - 2026-09-29",
+    "[1.10.7](https://github.com/zhaoolee/notes/compare/1.10.6...1.10.7) - 2026-10-02",
   );
   assert.match(
     sections[currentReleaseSectionIndex]?.content ?? "",
+    /公众号.*Markdown 列表.*空行.*多余圆点.*列表外.*正文空行/s,
+  );
+  const blankLineReleaseSectionIndex = currentReleaseSectionIndex + 1;
+  assert.equal(
+    sections[blankLineReleaseSectionIndex]?.heading,
+    "[1.10.6](https://github.com/zhaoolee/notes/compare/1.10.5...1.10.6) - 2026-09-29",
+  );
+  assert.match(
+    sections[blankLineReleaseSectionIndex]?.content ?? "",
     /公众号.*Markdown 空行.*完整高度.*普通换行.*连续空行/s,
   );
-  const headingFixReleaseSectionIndex = currentReleaseSectionIndex + 1;
+  const headingFixReleaseSectionIndex = currentReleaseSectionIndex + 2;
   assert.equal(
     sections[headingFixReleaseSectionIndex]?.heading,
     "[1.10.5](https://github.com/zhaoolee/notes/compare/1.10.4...1.10.5) - 2026-09-26",
@@ -164,7 +173,7 @@ test("changelog 解析器保留便签分节并解析版本比较链接", () => {
     sections[headingFixReleaseSectionIndex]?.content ?? "",
     /公众号草稿.*Markdown 小标题前后的连续空行.*换行.*分节时丢失/s,
   );
-  const previousFixReleaseSectionIndex = currentReleaseSectionIndex + 2;
+  const previousFixReleaseSectionIndex = currentReleaseSectionIndex + 3;
   assert.equal(
     sections[previousFixReleaseSectionIndex]?.heading,
     "[1.10.4](https://github.com/zhaoolee/notes/compare/1.10.3...1.10.4) - 2026-09-26",

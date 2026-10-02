@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import {
   detachUnindentedImagesFromLists,
   MARKDOWN_BLANK_LINE,
+  MARKDOWN_LIST_ITEM_PATTERN,
   preserveMarkdownBlankLines,
   splitSections,
 } from "../lib/markdown.js";
@@ -332,7 +333,7 @@ function createMarkdownComponents(
         boxSizing: "border-box",
         width: "100% !important",
         maxWidth: "100% !important",
-        margin: isTelegraph ? "21px 0" : `${scaledPx(8)} 0 0`,
+        margin: isTelegraph ? "21px 0" : `${scaledPx(8)} 0`,
         paddingLeft: isTelegraph ? "30px !important" : "1.3em !important",
         listStylePosition: "outside",
         color: colors.text,
@@ -351,7 +352,7 @@ function createMarkdownComponents(
         boxSizing: "border-box",
         width: "100% !important",
         maxWidth: "100% !important",
-        margin: isTelegraph ? "21px 0" : `${scaledPx(8)} 0 0`,
+        margin: isTelegraph ? "21px 0" : `${scaledPx(8)} 0`,
         paddingLeft: isTelegraph ? "30px !important" : "1.3em !important",
         listStylePosition: "outside",
         color: colors.text,
@@ -549,10 +550,16 @@ function WechatSectionContent({
       </p>
     ));
   const body = lines.slice(firstBodyLine, lastBodyLine).join("\n");
+  const leadingBlankLines = MARKDOWN_LIST_ITEM_PATTERN.test(lines[firstBodyLine] ?? "")
+    ? 0
+    : firstBodyLine;
+  const trailingBlankLines = MARKDOWN_LIST_ITEM_PATTERN.test(lines[lastBodyLine - 1] ?? "")
+    ? 0
+    : lines.length - lastBodyLine;
 
   return (
     <>
-      {blankParagraphs(firstBodyLine)}
+      {blankParagraphs(leadingBlankLines)}
       {body ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkManualLineParagraphs]}
@@ -564,10 +571,11 @@ function WechatSectionContent({
                 removeTrailingEmptyListItems(body),
               ),
             ),
+            { suppressListAdjacentBlankLines: true },
           )}
         </ReactMarkdown>
       ) : null}
-      {blankParagraphs(lines.length - lastBodyLine)}
+      {blankParagraphs(trailingBlankLines)}
     </>
   );
 }

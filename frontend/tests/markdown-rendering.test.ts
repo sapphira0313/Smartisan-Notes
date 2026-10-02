@@ -219,6 +219,20 @@ test("preserveMarkdownBlankLines 保留正文空行但不改写代码块", () =>
   assert.equal(preserveMarkdownBlankLines(markdown), expected);
 });
 
+test("公众号空行预处理不把列表分隔行变成占位段落", () => {
+  const markdown = "前文\n\n- 第一项\n\n- 第二项\n\n后文\n\n结尾";
+  const prepared = preserveMarkdownBlankLines(markdown, {
+    suppressListAdjacentBlankLines: true,
+  });
+
+  assert.equal(
+    prepared,
+    `前文\n\n- 第一项\n- 第二项\n\n后文\n\n${MARKDOWN_BLANK_LINE}\n\n结尾`,
+  );
+  assert.equal(preserveMarkdownBlankLines("- 第一项\n\n- 第二项"),
+    `- 第一项\n\n${MARKDOWN_BLANK_LINE}\n\n- 第二项`);
+});
+
 test("NoteSheet 服务端渲染复用前端 Markdown 结构", () => {
   const html = renderToStaticMarkup(
     createElement(NoteSheet, {
@@ -910,4 +924,55 @@ test("WechatArticle 区分单次换行与真正的 Markdown 空行", () => {
   assert.match(html, /第一行<\/p>\s*<p style="margin:0;line-height:1\.75;font-weight:400">第二行<\/p>/);
   assert.equal((html.match(/>\u2800<\/p>/g) ?? []).length, 1);
   assert.match(html, /第二行<\/p>\s*<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>\s*<p style="margin:0;line-height:1\.75;font-weight:400">第三行<\/p>/);
+});
+
+test("WechatArticle 列表项间的空行不会成为公众号中的空圆点", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "列表空行测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "## 想进步了\n\n国庆节推荐\n\n- 适合学生党\n\n- 适合自媒体\n\n- 适合办公党\n\n后续正文",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<ul\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 3);
+  assert.equal((html.match(/>\u2800<\/p>/g) ?? []).length, 1);
+  assert.match(html, /适合学生党<\/li>\s*<li[^>]*>适合自媒体<\/li>\s*<li[^>]*>适合办公党<\/li>/);
+  assert.doesNotMatch(html, /<li[^>]*>\s*(?:<p[^>]*>)?\u2800/);
+});
+
+test("WechatArticle 分节边界的列表空行不会产生空圆点", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "列表边界测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "## 第一节\n\n1. 第一项\n\n2. 第二项\n\n## 第二节\n\n普通正文",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<ol\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 2);
+  assert.doesNotMatch(html, /<p[^>]*>\u2800<\/p>\s*<ol\b/);
+  assert.doesNotMatch(html, /<\/ol>\s*<p[^>]*>\u2800<\/p>/);
+});
+
+test("WechatArticle 列表后接图片时不插入空圆点", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "列表图片测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "## 想进步了\n\n推荐\n\n- 适合学生党\n\n- 适合自媒体\n\n- 适合办公党\n\n![演示图](https://example.com/p.png)",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<ul\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 3);
+  assert.match(html, /适合办公党<\/li>\s*<\/ul>\s*<p[^>]*><span data-smartisan-image=/);
 });

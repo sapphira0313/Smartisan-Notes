@@ -17,12 +17,12 @@ function trimTrailingBlankLines(lines: string[]): string[] {
 }
 
 export const MARKDOWN_BLANK_LINE = "\u00A0";
+export const MARKDOWN_LIST_ITEM_PATTERN = /^\s*(?:[-+*]|\d+[.)])\s+\S/;
 
 export function detachUnindentedImagesFromLists(markdown: string): string {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const output: string[] = [];
   let inCodeFence = false;
-  const listItemPattern = /^\s*(?:[-+*]|\d+[.)])\s+\S/;
   const unindentedImagePattern =
     /^!\[[^\]\n]*\]\((?:[^()\n]|\([^)\n]*\))+\)\s*$/;
 
@@ -37,13 +37,13 @@ export function detachUnindentedImagesFromLists(markdown: string): string {
       const previousLine = output[output.length - 1] ?? "";
       const nextLine = lines[index + 1] ?? "";
 
-      if (listItemPattern.test(previousLine)) {
+      if (MARKDOWN_LIST_ITEM_PATTERN.test(previousLine)) {
         output.push("");
       }
 
       output.push(line);
 
-      if (listItemPattern.test(nextLine)) {
+      if (MARKDOWN_LIST_ITEM_PATTERN.test(nextLine)) {
         output.push("");
       }
 
@@ -56,12 +56,17 @@ export function detachUnindentedImagesFromLists(markdown: string): string {
   return output.join("\n");
 }
 
-export function preserveMarkdownBlankLines(markdown: string): string {
+export function preserveMarkdownBlankLines(
+  markdown: string,
+  options: { suppressListAdjacentBlankLines?: boolean } = {},
+): string {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const preservedLines: string[] = [];
   let inCodeFence = false;
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
     if (/^\s*(```|~~~)/.test(line)) {
       inCodeFence = !inCodeFence;
       preservedLines.push(line);
@@ -69,7 +74,30 @@ export function preserveMarkdownBlankLines(markdown: string): string {
     }
 
     if (!inCodeFence && line.trim() === "") {
-      preservedLines.push("", MARKDOWN_BLANK_LINE, "");
+      let blankRunEnd = index + 1;
+
+      while (blankRunEnd < lines.length && lines[blankRunEnd].trim() === "") {
+        blankRunEnd += 1;
+      }
+
+      const previousIsListItem = MARKDOWN_LIST_ITEM_PATTERN.test(lines[index - 1] ?? "");
+      const nextIsListItem = MARKDOWN_LIST_ITEM_PATTERN.test(lines[blankRunEnd] ?? "");
+
+      if (
+        options.suppressListAdjacentBlankLines &&
+        (previousIsListItem || nextIsListItem)
+      ) {
+        // 列表项之间合并成一组；列表边界只保留 Markdown 结构分隔。
+        if (!(previousIsListItem && nextIsListItem)) {
+          preservedLines.push("");
+        }
+      } else {
+        for (let blankIndex = index; blankIndex < blankRunEnd; blankIndex += 1) {
+          preservedLines.push("", MARKDOWN_BLANK_LINE, "");
+        }
+      }
+
+      index = blankRunEnd - 1;
       continue;
     }
 
