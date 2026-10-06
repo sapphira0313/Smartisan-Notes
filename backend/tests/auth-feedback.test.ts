@@ -700,7 +700,10 @@ test("管理员可使用便签服务、创建用户且各账号云工作区严�
       }
     ).articles[0];
     assert.equal(compactLongDraftArticle.title, "程序员狠话｜长度回归");
-    assert.ok(Array.from(compactLongDraftArticle.content).length < 16_000);
+    assert.ok(
+      Array.from(compactLongDraftArticle.content).length < 17_000,
+      `使用完整字号与行高保留空行后，公众号长文草稿应少于 1.7 万字符，实际为 ${Array.from(compactLongDraftArticle.content).length}`,
+    );
     assert.match(compactLongDraftArticle.content, /items\/10/);
 
     const gifMetadata = await sharp(twoFrameGif, { animated: true }).metadata();

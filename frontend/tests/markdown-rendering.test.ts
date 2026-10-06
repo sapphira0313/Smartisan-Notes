@@ -515,7 +515,7 @@ test("WechatArticle 生成公众号可粘贴的内联样式富文本", () => {
   );
   assert.match(
     html,
-    /data-smartisan-theme="default" style="[^"]*color:#665749[^"]*font-size:15px[^"]*line-height:1\.75[^"]*white-space:pre-wrap/,
+    /data-smartisan-theme="default" style="[^"]*color:#665749[^"]*font-size:15px[^"]*line-height:26\.25px[^"]*white-space:pre-wrap/,
   );
   assert.doesNotMatch(html, /-webkit-text-stroke/);
   assert.match(html, /<span data-smartisan-corner="top-left"/);
@@ -527,7 +527,7 @@ test("WechatArticle 生成公众号可粘贴的内联样式富文本", () => {
   assert.doesNotMatch(html, /<header[^>]*text-align:center/);
   assert.match(
     html,
-    /<p style="margin:0;line-height:1\.75;font-weight:400;text-align:center">公众号居中正文<\/p>/,
+    /<p style="margin:0;font-size:15px;line-height:26\.25px;font-weight:400;text-align:center">公众号居中正文<\/p>/,
   );
   assert.match(
     html,
@@ -535,12 +535,12 @@ test("WechatArticle 生成公众号可粘贴的内联样式富文本", () => {
   );
   assert.match(
     html,
-    /<h2 style="[^"]*font-weight:600[^"]*line-height:1\.4[^"]*font-size:17px[^"]*"><strong[^>]*font-weight:600[^>]*>0x01<\/strong><\/h2>/,
+    /<h2 style="[^"]*font-weight:600[^"]*font-size:17px[^"]*line-height:23\.8px[^"]*"><strong[^>]*font-weight:600[^>]*>0x01<\/strong><\/h2>/,
   );
   assert.doesNotMatch(html, /<header[^>]*border-bottom/);
   assert.match(
     html,
-    /<blockquote style="[^"]*margin:11\.2px 0[^"]*padding:0[^"]*border:0[^"]*border-left:0[^"]*color:#c0b5a7[^"]*line-height:1\.64[^"]*font-style:normal/,
+    /<blockquote style="[^"]*margin:11\.2px 0[^"]*padding:0[^"]*border:0[^"]*border-left:0[^"]*color:#c0b5a7[^"]*font-size:15px[^"]*line-height:24\.6px[^"]*font-style:normal/,
   );
   assert.match(
     html,
@@ -551,11 +551,11 @@ test("WechatArticle 生成公众号可粘贴的内联样式富文本", () => {
   assert.doesNotMatch(html, /<\/strong>[\u00a0\u2060]vibe coding/);
   assert.match(
     html,
-    /<p style="margin:0;line-height:1\.75;font-weight:400">正文包含/,
+    /<p style="margin:0;font-size:15px;line-height:26\.25px;font-weight:400">正文包含/,
   );
   assert.match(
     html,
-    /data-smartisan-theme="default" style="[^"]*color:#665749[^"]*font-size:15px[^"]*line-height:1\.75/,
+    /data-smartisan-theme="default" style="[^"]*color:#665749[^"]*font-size:15px[^"]*line-height:26\.25px/,
   );
   assert.match(html, /<a href="https:\/\/example\.com" style=/);
   assert.match(html, /data-smartisan-image="true"/);
@@ -590,7 +590,7 @@ test("WechatArticle 生成公众号可粘贴的内联样式富文本", () => {
   assert.match(html, /via Notes Skill/);
   assert.match(
     html,
-    /<section data-smartisan-footer="true" style="[^"]*margin:42px 14px 0[^"]*font-size:0[^"]*line-height:14\.336px/,
+    /<section data-smartisan-footer="true" style="[^"]*margin:42px 14px 0[^"]*font-size:11\.2px[^"]*line-height:14\.336px[^"]*white-space:normal/,
   );
   assert.doesNotMatch(html, /<footer(?:\s|>)/);
   assert.doesNotMatch(html, /<table data-smartisan-footer="true"/);
@@ -689,7 +689,8 @@ test("WechatArticle 为七种卡片主题生成互不共享的内联配色", () 
       style.layout === "apple",
     );
     assert.equal(html.includes(">▎</span>"), style.layout === "bear");
-    const expectedBodyLineHeight =
+    const expectedBodyFontSizePx = style.layout === "telegraph" ? 18 : 15;
+    const expectedBodyLineHeightRatio =
       style.layout === "telegraph"
         ? 1.58
         : style.layout === "bear"
@@ -697,12 +698,15 @@ test("WechatArticle 为七种卡片主题生成互不共享的内联配色", () 
           : style.layout === "bazhahei"
             ? 1.8
             : 1.75;
+    const expectedBodyLineHeight = `${Number(
+      (expectedBodyFontSizePx * expectedBodyLineHeightRatio).toFixed(4),
+    )}px`;
     assert.match(
       html,
       new RegExp(
-        `<p style="margin:0;line-height:${expectedBodyLineHeight};font-weight:400">正文与`,
+        `<p style="margin:0;font-size:${expectedBodyFontSizePx}px;line-height:${expectedBodyLineHeight};font-weight:400">正文与`,
       ),
-      `${theme} 的正文段落必须自行携带主题行高，不能只依赖父容器继承`,
+      `${theme} 的正文段落必须自行携带主题字号和 px 行高，不能只依赖父容器继承`,
     );
   }
 });
@@ -751,8 +755,8 @@ test("WechatArticle 为 Telegra.ph 保留原站正文节奏与引用线", () => 
   );
 
   assert.match(html, /data-note-card-theme="telegraph"/);
-  assert.match(html, /font-size:18px;[^\"]*line-height:1\.58/);
-  assert.match(html, /line-height:1\.0625;[^\"]*font-size:32px/);
+  assert.match(html, /font-size:18px;[^\"]*line-height:28\.44px/);
+  assert.match(html, /font-size:32px;[^\"]*line-height:34px/);
   assert.match(
     html,
     /<p style="margin:0;min-height:28\.44px;line-height:28\.44px;font-size:18px;font-weight:400">\u2800<\/p>/,
@@ -802,7 +806,7 @@ test("WechatArticle 只把 Bear 粗体渲染为链接红色", () => {
   assert.doesNotMatch(defaultHtml, /<strong style="[^"]*color:#dd4c4f/);
 });
 
-test("WechatArticle 长文只在段落重复微信需要的行高且不超过长度限制", () => {
+test("WechatArticle 长文只在段落重复微信需要的字号与行高且不超过长度限制", () => {
   const markdown = [
     "# 程序员狠话｜长度回归",
     ...Array.from({ length: 10 }, (_, index) =>
@@ -825,18 +829,18 @@ test("WechatArticle 长文只在段落重复微信需要的行高且不超过长
   );
 
   assert.ok(
-    Array.from(html).length < 16_000,
-    `使用完整行高保留空行后，十节长文的公众号 HTML 应少于 1.6 万字符，实际为 ${Array.from(html).length}`,
+    Array.from(html).length < 17_000,
+    `使用完整字号与行高保留空行后，十节长文的公众号 HTML 应少于 1.7 万字符，实际为 ${Array.from(html).length}`,
   );
   assert.equal((html.match(/<h2\b/g) ?? []).length, 10);
   assert.equal((html.match(/<blockquote\b/g) ?? []).length, 10);
   assert.equal((html.match(/来源：<a /g) ?? []).length, 10);
   assert.doesNotMatch(html, /data-smartisan-frame="outer"/);
   assert.doesNotMatch(html, /<p style="[^"]*font-family:/);
-  assert.match(html, /<p style="margin:0;line-height:1\.75;font-weight:400">/);
+  assert.match(html, /<p style="margin:0;font-size:15px;line-height:26\.25px;font-weight:400">/);
   assert.match(
     html,
-    /data-smartisan-theme="apple-notes" style="[^"]*font-size:15px[^"]*line-height:1\.75[^"]*white-space:pre-wrap/,
+    /data-smartisan-theme="apple-notes" style="[^"]*font-size:15px[^"]*line-height:26\.25px[^"]*white-space:pre-wrap/,
   );
 });
 
@@ -888,7 +892,7 @@ test("WechatArticle 连续空行有可保留的内容且正文与粗体字重分
   assert.doesNotMatch(html, /<span style="display:block;height:0\.704em"><\/span>/);
   assert.match(
     html,
-    /<p style="margin:0;line-height:1\.75;font-weight:400">第二段 <strong style="font-weight:600">重点<\/strong> 后续<\/p>/,
+    /<p style="margin:0;font-size:15px;line-height:26\.25px;font-weight:400">第二段 <strong style="font-weight:600">重点<\/strong> 后续<\/p>/,
   );
 });
 
@@ -921,9 +925,9 @@ test("WechatArticle 区分单次换行与真正的 Markdown 空行", () => {
     }),
   );
 
-  assert.match(html, /第一行<\/p>\s*<p style="margin:0;line-height:1\.75;font-weight:400">第二行<\/p>/);
+  assert.match(html, /第一行<\/p>\s*<p style="margin:0;font-size:15px;line-height:26\.25px;font-weight:400">第二行<\/p>/);
   assert.equal((html.match(/>\u2800<\/p>/g) ?? []).length, 1);
-  assert.match(html, /第二行<\/p>\s*<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>\s*<p style="margin:0;line-height:1\.75;font-weight:400">第三行<\/p>/);
+  assert.match(html, /第二行<\/p>\s*<p style="margin:0;min-height:26\.25px;line-height:26\.25px;font-size:15px;font-weight:400">\u2800<\/p>\s*<p style="margin:0;font-size:15px;line-height:26\.25px;font-weight:400">第三行<\/p>/);
 });
 
 test("WechatArticle 列表项间的空行不会成为公众号中的空圆点", () => {
@@ -975,4 +979,200 @@ test("WechatArticle 列表后接图片时不插入空圆点", () => {
   assert.equal((html.match(/<ul\b/g) ?? []).length, 1);
   assert.equal((html.match(/<li\b/g) ?? []).length, 3);
   assert.match(html, /适合办公党<\/li>\s*<\/ul>\s*<p[^>]*><span data-smartisan-image=/);
+});
+
+test("WechatArticle 为七种主题的普通与居中正文写入明确字号和像素行高", () => {
+  const themes = Object.keys(NOTE_CARD_THEME_STYLES) as NoteCardThemeId[];
+
+  for (const theme of themes) {
+    const style = NOTE_CARD_THEME_STYLES[theme];
+    const bodyFontSizePx = style.layout === "telegraph" ? 18 : 15;
+    const html = renderToStaticMarkup(
+      createElement(WechatArticle, {
+        footerBrand: "字号行高测试",
+        footerHammerUrl: "https://cdn.example.com/hammer.png",
+        footerVia: "via Feedback",
+        markdown: "[居中正文]\n\n普通正文",
+        theme,
+      }),
+    );
+
+    for (const text of ["居中正文", "普通正文"]) {
+      assert.match(
+        html,
+        new RegExp(
+          `<p style="[^"]*font-size:${bodyFontSizePx}px[^"]*line-height:\\d+(?:\\.\\d+)?px[^"]*"[^>]*>${text}`,
+        ),
+        `${theme} 的“${text}”段落必须自带字号和 px 行高，避免微信重建段落后继承丢失`,
+      );
+    }
+  }
+});
+
+test("WechatArticle 为长链接、长段落、无语言代码、引用标题和表格写入安全排版", () => {
+  const markdown = [
+    "# 一级标题",
+    "",
+    "## 二级标题",
+    "",
+    "### 三级标题",
+    "",
+    "#### 四级标题",
+    "",
+    "##### 五级标题",
+    "",
+    "###### 六级标题",
+    "",
+    "> ## 引用中的标题",
+    "> ",
+    "> 这是一段中文引用内容 English quoted content that is intentionally long enough to wrap on narrow phone screens without collapsing.",
+    "",
+    "这是一段中英文混合的长段落，包含一个很长的链接：[长链接](https://example.com/a/very/long/path/that/keeps/going?query=abcdefghijklmnopqrstuvwxyz) 以及 English words that should wrap naturally inside the WeChat editor without overlapping the next line.",
+    "",
+    "```",
+    "const answer = 42;",
+    "console.log(answer);",
+    "```",
+    "",
+    "| 项目 | 状态 |",
+    "| --- | --- |",
+    "| 单元格 | 正常 |",
+  ].join("\n");
+
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand:
+        "很长的自定义署名，用于验证换行不会与 via 标记重叠-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown,
+      theme: "default",
+    }),
+  );
+
+  // 标题必须自带字号与 px 行高。
+  for (const tag of ["h1", "h2", "h3", "h4", "h5", "h6"]) {
+    const match = new RegExp(`<${tag} style="([^"]*)"`).exec(html);
+    assert.ok(match, `${tag} 必须存在`);
+    assert.match(match[1], /font-size:\d+(?:\.\d+)?px/, `${tag} 必须自带字号`);
+    assert.match(
+      match[1],
+      /line-height:\d+(?:\.\d+)?px/,
+      `${tag} 必须自带 px 行高`,
+    );
+  }
+
+  // 引用中的标题行高按标题自身字号计算，而不是被压成正文行高。
+  const quoteHeading = /<blockquote[\s\S]*?<h2 style="([^"]*)"/.exec(html);
+  assert.ok(quoteHeading, "引用中必须保留标题");
+  assert.match(quoteHeading[1], /font-size:17px/);
+  assert.match(quoteHeading[1], /line-height:27\.88px/);
+
+  // 长段落与长链接仍直接携带正文的字号和 px 行高。
+  const longParagraph = /<p style="([^"]*)"[^>]*>这是一段中英文混合的长段落/.exec(
+    html,
+  );
+  assert.ok(longParagraph, "长段落必须存在");
+  assert.match(longParagraph[1], /font-size:15px/);
+  assert.match(longParagraph[1], /line-height:26\.25px/);
+  assert.match(
+    html,
+    /<a href="https:\/\/example\.com\/a\/very\/long\/path\/that\/keeps\/going\?query=abcdefghijklmnopqrstuvwxyz" style=/,
+  );
+
+  // 无语言代码围栏的 code 字号和行高必须与 pre 一致，不能被相对字号放大。
+  const codeBlock =
+    /<pre style="([^"]*)"[^>]*>\s*<code(?: class="[^"]*")? style="([^"]*)"/.exec(
+      html,
+    );
+  assert.ok(codeBlock, "必须渲染无语言代码围栏");
+  assert.match(codeBlock[1], /font-size:13px/);
+  assert.match(codeBlock[1], /line-height:21\.06px/);
+  assert.match(codeBlock[2], /font-size:13px/);
+  assert.match(codeBlock[2], /line-height:21\.06px/);
+
+  // 表格单元格自带字号与安全行高。
+  for (const tag of ["th", "td"]) {
+    const match = new RegExp(`<${tag} style="([^"]*)"`).exec(html);
+    assert.ok(match, `${tag} 必须存在`);
+    assert.match(match[1], /font-size:14px/, `${tag} 必须自带字号`);
+    assert.match(
+      match[1],
+      /line-height:21\.28px/,
+      `${tag} 必须自带 px 行高`,
+    );
+  }
+
+  // 大引号行高不小于字号。
+  const quoteMark = /<span aria-hidden="true" style="([^"]*)">“<\/span>/.exec(
+    html,
+  );
+  assert.ok(quoteMark, "默认主题必须渲染大引号");
+  assert.match(quoteMark[1], /font-size:26px/);
+  assert.match(quoteMark[1], /line-height:26px/);
+
+  // 四角装饰是真正的无文字装饰，且不再用零字号/零行高控布局。
+  assert.doesNotMatch(html, /\u00a0/);
+  assert.match(html, /<span data-smartisan-corner="top-left"[^>]*><\/span>/);
+  for (const attr of ["data-smartisan-corner", "data-smartisan-corners"]) {
+    for (const match of html.matchAll(
+      new RegExp(`${attr}="[^"]+"[^>]*style="([^"]*)"`, "g"),
+    )) {
+      assert.doesNotMatch(match[1], /font-size:0(?:px)?(?:;|$)/);
+      assert.doesNotMatch(match[1], /line-height:0(?:px)?(?:;|$)/);
+    }
+  }
+
+  // 页脚不再用 font-size:0 控制布局，长署名允许换行，行高不小于最大字号。
+  const footer = /<section data-smartisan-footer="true" style="([^"]*)"/.exec(
+    html,
+  );
+  assert.ok(footer, "必须渲染页脚");
+  assert.match(footer[1], /font-size:11\.2px/);
+  assert.match(footer[1], /white-space:normal/);
+  assert.doesNotMatch(footer[1], /font-size:0(?:px)?(?:;|$)/);
+  const footerLineHeight = Number(
+    /line-height:([\d.]+)px/.exec(footer[1])?.[1],
+  );
+  assert.ok(
+    footerLineHeight >= 11.2,
+    `页脚行高不能小于署名最大字号，实际为 ${footerLineHeight}px`,
+  );
+});
+
+test("WechatArticle 的大引号行高不小于字号且 Bear 标记保持 18px", () => {
+  const defaultHtml = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "署名",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "> 引用内容",
+      theme: "default",
+    }),
+  );
+  const bearHtml = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "署名",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "> 引用内容",
+      theme: "bear",
+    }),
+  );
+
+  const defaultMark = /<span aria-hidden="true" style="([^"]*)">“<\/span>/.exec(
+    defaultHtml,
+  );
+  assert.ok(defaultMark);
+  assert.match(defaultMark[1], /width:18px/);
+  assert.match(defaultMark[1], /font-size:26px/);
+  assert.match(defaultMark[1], /line-height:26px/);
+
+  const bearMark = /<span aria-hidden="true" style="([^"]*)">▎<\/span>/.exec(
+    bearHtml,
+  );
+  assert.ok(bearMark);
+  assert.match(bearMark[1], /width:18px/);
+  assert.match(bearMark[1], /font-size:18px/);
+  assert.match(bearMark[1], /line-height:18px/);
 });

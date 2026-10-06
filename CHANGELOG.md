@@ -2,6 +2,16 @@
 
 本文件记录锤子便签中值得用户关注的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.11.1] - 2026-10-06
+
+### 修复
+
+- 改善复制到公众号和发布草稿的行高兼容性，减少手机端文字重叠风险；长署名支持换行。
+
+### 安全
+
+- 更新代理地址解析依赖，修复特定代理信任配置下的客户端 IP 伪造漏洞。
+
 ## [1.11.0] - 2026-10-06
 
 ### 新增
@@ -286,6 +296,7 @@
 - PC 版便签操作栏右侧按钮调整为“AI、删除、分享”的顺序，与 APP 版详情操作保持一致。
 - 重置 Hermes 安装链接前会明确提示旧链接立即失效，并要求二次确认，避免误触轮换。
 
+[1.11.1]: https://github.com/zhaoolee/notes/compare/1.11.0...1.11.1
 [1.11.0]: https://github.com/zhaoolee/notes/compare/1.10.7...1.11.0
 [1.10.7]: https://github.com/zhaoolee/notes/compare/1.10.6...1.10.7
 [1.10.6]: https://github.com/zhaoolee/notes/compare/1.10.5...1.10.6

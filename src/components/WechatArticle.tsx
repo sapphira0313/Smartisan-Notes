@@ -41,6 +41,31 @@ function scaledRem(value: number): string {
   return scaledPx(value * 16);
 }
 
+// 把已知的字号和行高倍数换算成显式 px 行高，避免富文本清洗或重建段落后
+// 继承的字号丢失、行高被误读，从而保持原有视觉比例。
+function pxLineHeight(fontSizePx: number, lineHeightRatio: number): string {
+  return `${Number((fontSizePx * lineHeightRatio).toFixed(4))}px`;
+}
+
+function resolveFontSizePx(value: CSSProperties["fontSize"]): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === "string") {
+    const match = /^(-?\d+(?:\.\d+)?)px$/.exec(value.trim());
+    if (match) {
+      const parsed = Number(match[1]);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+  }
+
+  return undefined;
+}
+
+const footerBrandFontSizePx = 0.5 * 16 * LAYOUT_SCALE;
+const footerViaFontSizePx = 0.42 * 16 * LAYOUT_SCALE;
+
 const quoteIndent = "18px";
 const bearBlockGap = "0.704em";
 const bazhaheiBlockGap = "0.8em";
@@ -52,9 +77,11 @@ interface WechatRenderContext {
   baseHeadingStyle: CSSProperties;
   blankParagraphStyle: CSSProperties;
   bodyFontSize: string;
+  bodyFontSizePx: number;
   bodyLineHeight: number;
   bodyParagraphStyle: CSSProperties;
   colors: NoteCardThemeColors;
+  headingLineHeightRatio: number;
   letterSpacing: string;
   themeStyle: NoteCardThemeStyle;
 }
@@ -78,6 +105,13 @@ function createWechatRenderContext(
         ? "0.01em"
         : "0.03em";
   const headingWeight = isBear ? 400 : isBazhahei || isTelegraph ? 700 : 600;
+  const headingLineHeightRatio = isBear
+    ? 1.521
+    : isTelegraph
+      ? 1.0625
+      : isBazhahei
+        ? 1.5
+        : 1.32;
 
   return {
     colors,
@@ -90,7 +124,9 @@ function createWechatRenderContext(
       fontWeight: 400,
     },
     bodyFontSize,
+    bodyFontSizePx,
     bodyLineHeight,
+    headingLineHeightRatio,
     letterSpacing,
     baseHeadingStyle: {
       color: colors.heading,
@@ -98,11 +134,11 @@ function createWechatRenderContext(
         ? { fontFamily: themeStyle.headingFontFamily }
         : {}),
       fontWeight: headingWeight,
-      lineHeight: isBear ? 1.521 : isTelegraph ? 1.0625 : isBazhahei ? 1.5 : 1.32,
     },
     bodyParagraphStyle: {
       margin: "0",
-      lineHeight: bodyLineHeight,
+      fontSize: bodyFontSize,
+      lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
       fontWeight: 400,
     },
   };
@@ -111,11 +147,14 @@ function createWechatRenderContext(
 function renderBlockquoteChildren(
   children: ReactNode,
   context: WechatRenderContext,
+  headingFontSizeByComponent: Map<unknown, number>,
 ): ReactNode {
-  const { colors, themeStyle } = context;
+  const { bodyFontSize, bodyFontSizePx, colors, themeStyle } = context;
   const isBear = themeStyle.layout === "bear";
   const isBazhahei = themeStyle.layout === "bazhahei";
   const isTelegraph = themeStyle.layout === "telegraph";
+  const quoteLineHeightRatio = isTelegraph ? 1.58 : 1.64;
+  const quoteMarkFontSizePx = isBear ? 18 : 26;
   let hasQuoteMark = false;
 
   return Children.map(children, (child) => {
@@ -130,14 +169,21 @@ function renderBlockquoteChildren(
 
     const isFirstTextBlock = !hasQuoteMark;
     hasQuoteMark = true;
+    const headingFontSizePx = headingFontSizeByComponent.get(child.type);
+    const childFontSize =
+      child.props.style?.fontSize ??
+      (headingFontSizePx !== undefined ? `${headingFontSizePx}px` : bodyFontSize);
+    const childFontSizePx =
+      headingFontSizePx ?? resolveFontSizePx(childFontSize) ?? bodyFontSizePx;
 
     return cloneElement(
       child,
       {
         style: {
           ...child.props.style,
+          fontSize: childFontSize,
           margin: "0",
-          lineHeight: isTelegraph ? 1.58 : 1.64,
+          lineHeight: pxLineHeight(childFontSizePx, quoteLineHeightRatio),
           ...(isFirstTextBlock && !isTelegraph && !isBazhahei
             ? {
                 paddingLeft: quoteIndent,
@@ -154,8 +200,8 @@ function renderBlockquoteChildren(
               display: "inline-block",
               width: quoteIndent,
               color: colors.quoteMark,
-              fontSize: isBear ? "18px" : "26px",
-              lineHeight: isBear ? 1 : 0.82,
+              fontSize: `${quoteMarkFontSizePx}px`,
+              lineHeight: pxLineHeight(quoteMarkFontSizePx, 1),
               textIndent: "0",
               verticalAlign: isBear ? "-0.04em" : "-0.12em",
             }}
@@ -178,91 +224,115 @@ function createMarkdownComponents(
     baseHeadingStyle,
     blankParagraphStyle,
     bodyFontSize,
+    bodyFontSizePx,
     bodyLineHeight,
     bodyParagraphStyle,
     colors,
+    headingLineHeightRatio,
     themeStyle,
   } = context;
   const isBear = themeStyle.layout === "bear";
   const isBazhahei = themeStyle.layout === "bazhahei";
   const isTelegraph = themeStyle.layout === "telegraph";
+  const headingRatio = isTelegraph ? 1.1 : headingLineHeightRatio;
+  const h1FontSizePx = isTelegraph ? 32 : isBazhahei ? 30 : 22;
+  const h2FontSizePx = isTelegraph ? 24 : isBazhahei ? 20 : 17;
+  const h3FontSizePx = isTelegraph ? 28 : isBazhahei ? 17 : 16;
+  const h4FontSizePx = isTelegraph ? 24 : 15;
+  const h5FontSizePx = isTelegraph ? 24 : 14;
+  const h6FontSizePx = isTelegraph ? 24 : 13;
+  const tableFontSizePx = 14;
+  const tableLineHeight = pxLineHeight(tableFontSizePx, 1.52);
+  const codeBlockFontSizePx = isTelegraph ? 16 : 13;
+  const codeBlockStyle: CSSProperties = {
+    fontSize: `${codeBlockFontSizePx}px`,
+    lineHeight: pxLineHeight(codeBlockFontSizePx, isTelegraph ? 1.58 : 1.62),
+  };
+  const headingFontSizeByComponent = new Map<unknown, number>();
 
-  return {
-  h1: ({ children }) => (
+  const components: Components = {
+  h1: ({ children, style }) => (
     <h1
       style={{
         ...baseHeadingStyle,
         margin: "0",
         padding: isTelegraph ? "21px 0 12px" : isBazhahei ? "20px 0 16px" : undefined,
-        fontSize: isTelegraph ? "32px" : isBazhahei ? "30px" : "22px",
+        fontSize: `${h1FontSizePx}px`,
+        lineHeight: pxLineHeight(h1FontSizePx, headingLineHeightRatio),
         textAlign: isBazhahei ? "center" : undefined,
+        ...style,
       }}
     >
       {children}
     </h1>
   ),
-  h2: ({ children }) => (
+  h2: ({ children, style }) => (
     <h2
       style={{
         ...baseHeadingStyle,
         margin: "0",
         padding: isTelegraph ? "18px 0 7px" : isBazhahei ? "16px 0 8px" : undefined,
-        fontSize: isTelegraph ? "24px" : isBazhahei ? "20px" : "17px",
-        lineHeight: isTelegraph ? 1.1 : baseHeadingStyle.lineHeight,
+        fontSize: `${h2FontSizePx}px`,
+        lineHeight: pxLineHeight(h2FontSizePx, headingRatio),
+        ...style,
       }}
     >
       {isBazhahei ? <span aria-hidden="true">■ </span> : null}
       {children}
     </h2>
   ),
-  h3: ({ children }) => (
+  h3: ({ children, style }) => (
     <h3
       style={{
         ...baseHeadingStyle,
         margin: "0",
         padding: isTelegraph ? "18px 0 9px" : isBazhahei ? "14px 0 6px" : undefined,
         borderBottom: isBazhahei ? `3px solid ${colors.accent}` : undefined,
-        fontSize: isTelegraph ? "28px" : isBazhahei ? "17px" : "16px",
-        lineHeight: isTelegraph ? 1.1 : baseHeadingStyle.lineHeight,
+        fontSize: `${h3FontSizePx}px`,
+        lineHeight: pxLineHeight(h3FontSizePx, headingRatio),
+        ...style,
       }}
     >
       {children}
     </h3>
   ),
-  h4: ({ children }) => (
+  h4: ({ children, style }) => (
     <h4
       style={{
         ...baseHeadingStyle,
         margin: "0",
         padding: isTelegraph ? "18px 0 7px" : undefined,
-        fontSize: isTelegraph ? "24px" : "15px",
-        lineHeight: isTelegraph ? 1.1 : baseHeadingStyle.lineHeight,
+        fontSize: `${h4FontSizePx}px`,
+        lineHeight: pxLineHeight(h4FontSizePx, headingRatio),
+        ...style,
       }}
     >
       {children}
     </h4>
   ),
-  h5: ({ children }) => (
+  h5: ({ children, style }) => (
     <h5
       style={{
         ...baseHeadingStyle,
         margin: "0",
         padding: isTelegraph ? "18px 0 7px" : undefined,
-        fontSize: isTelegraph ? "24px" : "14px",
-        lineHeight: isTelegraph ? 1.1 : baseHeadingStyle.lineHeight,
+        fontSize: `${h5FontSizePx}px`,
+        lineHeight: pxLineHeight(h5FontSizePx, headingRatio),
+        ...style,
       }}
     >
       {children}
     </h5>
   ),
-  h6: ({ children }) => (
+  h6: ({ children, style }) => (
     <h6
       style={{
         ...baseHeadingStyle,
         margin: "0",
         padding: isTelegraph ? "18px 0 7px" : undefined,
-        fontSize: isTelegraph ? "24px" : "13px",
-        lineHeight: isTelegraph ? 1.1 : baseHeadingStyle.lineHeight,
+        fontSize: `${h6FontSizePx}px`,
+        lineHeight: pxLineHeight(h6FontSizePx, headingRatio),
+        ...style,
       }}
     >
       {children}
@@ -320,11 +390,12 @@ function createMarkdownComponents(
         borderRadius: isBazhahei ? "8px" : undefined,
         background: isBazhahei ? colors.pre : undefined,
         color: colors.quote,
-        lineHeight: isTelegraph ? 1.58 : 1.64,
+        fontSize: bodyFontSize,
+        lineHeight: pxLineHeight(bodyFontSizePx, isTelegraph ? 1.58 : 1.64),
         fontStyle: isTelegraph ? "italic" : "normal",
       }}
     >
-      {renderBlockquoteChildren(children, context)}
+      {renderBlockquoteChildren(children, context, headingFontSizeByComponent)}
     </blockquote>
   ),
   ul: ({ children }) => (
@@ -339,7 +410,7 @@ function createMarkdownComponents(
         color: colors.text,
         fontSize: bodyFontSize,
         fontWeight: 400,
-        lineHeight: bodyLineHeight,
+        lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
       }}
     >
       {children}
@@ -358,7 +429,7 @@ function createMarkdownComponents(
         color: colors.text,
         fontSize: bodyFontSize,
         fontWeight: 400,
-        lineHeight: bodyLineHeight,
+        lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
       }}
     >
       {children}
@@ -375,13 +446,13 @@ function createMarkdownComponents(
         color: colors.text,
         fontSize: bodyFontSize,
         fontWeight: 400,
-        lineHeight: bodyLineHeight,
+        lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
       }}
     >
       {children}
     </li>
   ),
-  code: ({ children, className }) => (
+  code: ({ children, className, style }) => (
     <code
       className={className}
       style={{
@@ -393,6 +464,7 @@ function createMarkdownComponents(
           '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
         fontSize: isTelegraph ? "16px" : className ? "13px" : "0.9em",
         fontWeight: 400,
+        ...style,
       }}
     >
       {children}
@@ -408,15 +480,20 @@ function createMarkdownComponents(
         borderRadius: isBazhahei ? "8px" : "0",
         background: colors.pre,
         color: colors.preText,
-        fontSize: isTelegraph ? "16px" : "13px",
+        ...codeBlockStyle,
         fontWeight: 400,
-        lineHeight: isTelegraph ? 1.58 : 1.62,
         whiteSpace: "pre-wrap",
         overflowWrap: "anywhere",
         wordBreak: "break-word",
       }}
     >
-      {children}
+      {Children.map(children, (child) =>
+        isValidElement<{ style?: CSSProperties }>(child)
+          ? cloneElement(child, {
+              style: { ...child.props.style, ...codeBlockStyle },
+            })
+          : child,
+      )}
     </pre>
   ),
   img: ({ src, alt }) => (
@@ -467,9 +544,9 @@ function createMarkdownComponents(
           width: "100%",
           borderCollapse: "collapse",
           color: colors.text,
-          fontSize: "14px",
+          fontSize: `${tableFontSizePx}px`,
           fontWeight: 400,
-          lineHeight: 1.52,
+          lineHeight: tableLineHeight,
         }}
       >
         {children}
@@ -484,6 +561,8 @@ function createMarkdownComponents(
         background: colors.tableHead,
         color: colors.heading,
         fontWeight: 600,
+        fontSize: `${tableFontSizePx}px`,
+        lineHeight: tableLineHeight,
         textAlign: "left",
       }}
     >
@@ -496,6 +575,8 @@ function createMarkdownComponents(
         padding: `${scaledRem(0.35)} ${scaledRem(0.45)}`,
         border: `1px solid ${colors.border}`,
         verticalAlign: "top",
+        fontSize: `${tableFontSizePx}px`,
+        lineHeight: tableLineHeight,
       }}
     >
       {children}
@@ -520,6 +601,21 @@ function createMarkdownComponents(
     />
   ),
   };
+
+  for (const [component, fontSizePx] of [
+    [components.h1, h1FontSizePx],
+    [components.h2, h2FontSizePx],
+    [components.h3, h3FontSizePx],
+    [components.h4, h4FontSizePx],
+    [components.h5, h5FontSizePx],
+    [components.h6, h6FontSizePx],
+  ] as const) {
+    if (component) {
+      headingFontSizeByComponent.set(component, fontSizePx);
+    }
+  }
+
+  return components;
 }
 
 function WechatSectionContent({
@@ -592,6 +688,15 @@ function SectionHeading({
   const { baseHeadingStyle, themeStyle } = context;
   const isBazhahei = themeStyle.layout === "bazhahei";
   const isTelegraph = themeStyle.layout === "telegraph";
+  const sectionHeadingFontSizePx = isTelegraph ? 28 : isBazhahei ? 20 : 17;
+  const sectionHeadingLineHeightRatio =
+    themeStyle.layout === "bear"
+      ? 1.521
+      : isTelegraph
+        ? 1.1
+        : isBazhahei
+          ? 1.5
+          : 1.4;
   const titleComponents: Components = {
     ...components,
     p: ({ children: titleChildren }) => (
@@ -611,8 +716,11 @@ function SectionHeading({
           style={{
             ...baseHeadingStyle,
             margin: "0",
-            fontSize: isTelegraph ? "28px" : isBazhahei ? "20px" : "17px",
-            lineHeight: themeStyle.layout === "bear" ? 1.521 : isTelegraph ? 1.1 : isBazhahei ? 1.5 : 1.4,
+            fontSize: `${sectionHeadingFontSizePx}px`,
+            lineHeight: pxLineHeight(
+              sectionHeadingFontSizePx,
+              sectionHeadingLineHeightRatio,
+            ),
           }}
         >
           {isBazhahei ? <span aria-hidden="true">■ </span> : null}
@@ -741,8 +849,6 @@ function FrameCornerRow({
         margin: edge === "top" ? "0 0 -1px" : "-1px 0 0",
         padding: "0",
         border: "0",
-        fontSize: "0",
-        lineHeight: "0",
       }}
     >
       {(["left", "right"] as const).map((side) => (
@@ -759,13 +865,8 @@ function FrameCornerRow({
             overflow: "hidden",
             border: `1px solid ${colors.frame}`,
             backgroundColor: colors.paper,
-            color: "transparent",
-            fontSize: "0",
-            lineHeight: "0",
           }}
-        >
-          {"\u00a0"}
-        </span>
+        />
       ))}
     </section>
   );
@@ -780,7 +881,8 @@ function WechatArticleContent({
   context: WechatRenderContext;
   sections: NoteSection[];
 }) {
-  const { bodyFontSize, bodyLineHeight, colors, themeStyle } = context;
+  const { bodyFontSize, bodyFontSizePx, bodyLineHeight, colors, themeStyle } =
+    context;
   const isBear = themeStyle.layout === "bear";
   const isApple = themeStyle.layout === "apple";
   const isBazhahei = themeStyle.layout === "bazhahei";
@@ -851,7 +953,7 @@ function WechatArticleContent({
             color: colors.quote,
             fontSize: bodyFontSize,
             fontWeight: 400,
-            lineHeight: bodyLineHeight,
+            lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
             textAlign: "center",
           }}
         >
@@ -872,6 +974,7 @@ export function WechatArticle({
   const context = createWechatRenderContext(theme);
   const {
     bodyFontSize,
+    bodyFontSizePx,
     bodyLineHeight,
     colors,
     letterSpacing,
@@ -902,7 +1005,7 @@ export function WechatArticle({
         fontFamily: themeStyle.fontFamily,
         fontSize: bodyFontSize,
         fontWeight: 400,
-        lineHeight: bodyLineHeight,
+        lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
         letterSpacing,
         whiteSpace: "pre-wrap",
         overflowWrap: "anywhere",
@@ -941,7 +1044,7 @@ export function WechatArticle({
               margin: `0 ${scaledPx(6)} ${scaledPx(14)}`,
               color: colors.accent,
               fontSize: "14px",
-              lineHeight: 1.2,
+              lineHeight: pxLineHeight(14, 1.2),
             }}
           >
             <span>‹ 备忘录</span>
@@ -983,9 +1086,9 @@ export function WechatArticle({
             boxSizing: "border-box",
             margin: `${scaledPx(30)} ${scaledPx(10)} 0`,
             color: colors.footer,
-            fontSize: "0",
+            fontSize: scaledRem(0.5),
             lineHeight: scaledRem(0.64),
-            whiteSpace: "nowrap",
+            whiteSpace: "normal",
             ...(isTelegraph
               ? { fontFamily: themeStyle.headingFontFamily }
               : {}),
@@ -1015,6 +1118,7 @@ export function WechatArticle({
             style={{
               display: "inline-block",
               fontSize: scaledRem(0.5),
+              lineHeight: pxLineHeight(footerBrandFontSizePx, 1.2),
               verticalAlign: "middle",
             }}
           >
@@ -1024,6 +1128,7 @@ export function WechatArticle({
                 marginLeft: scaledPx(5),
                 color: colors.footerVia,
                 fontSize: scaledRem(0.42),
+                lineHeight: pxLineHeight(footerViaFontSizePx, 1.2),
               }}
             >
               {footerVia}
