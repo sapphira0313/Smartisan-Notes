@@ -3282,6 +3282,9 @@ body,
 .editor-image-visual {
   position: relative;
   overflow: hidden;
+  /* 至少容纳 51px 的操作按钮，避免图片加载失败、加载中或极矮图片时
+     视觉区塌缩并把删除等按钮裁掉。按钮在桌面与手机端均为 51px。 */
+  min-height: 51px;
   background: var(--note-image-mat);
   cursor: pointer;
 }

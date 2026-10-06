@@ -497,7 +497,7 @@ test("跨端排序更新保留当前设备选中的便签 ID", () => {
   );
   assert.match(
     appSource,
-    /const workspace = getCurrentWorkspace\(\);[\s\S]*void saveCloudWorkspace\(workspace\)[\s\S]*\}, \[\s*authStatus,\s*authUser,\s*folders,\s*noteDocuments,\s*\]\);/s,
+    /const workspace = getCurrentWorkspace\(\);[\s\S]*cloudSaveQueueRef\.current\?\.enqueue\(workspace\)[\s\S]*\}, \[\s*authStatus,\s*authUser,\s*folders,\s*noteDocuments,\s*\]\);/s,
   );
   assert.match(
     storeSource,

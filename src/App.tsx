@@ -69,6 +69,13 @@ import {
   type NoteRoute,
   type NoteRouteView,
 } from "./lib/note-route";
+import {
+  createCloudSaveQueue,
+  handleWorkspaceSaveShortcut,
+  shouldApplyPolledWorkspace,
+  shouldMarkCloudSyncComplete,
+  type CloudSaveQueue,
+} from "./lib/workspace-save";
 import { getWechatConnectionStatus } from "./lib/wechat-config";
 import {
   copyMarkdownForWechat,
@@ -118,6 +125,30 @@ function getCurrentWorkspace(): NoteWorkspace {
     notes: state.notes,
     version: 1,
   };
+}
+
+/**
+ * Ctrl/Cmd+S 只有焦点在编辑器正文控件（或编辑器内的按钮/图片）时才真正保存；
+ * 搜索框、文件夹下拉、图片预览/裁剪弹窗等不能把保存误发给当前文章。
+ */
+function isSaveShortcutTargetAllowed(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return true;
+  }
+
+  if (target.closest('[role="dialog"]')) {
+    return false;
+  }
+
+  const control = target.closest(
+    'input, textarea, select, [contenteditable="true"]',
+  );
+
+  if (!control) {
+    return true;
+  }
+
+  return Boolean(control.closest(".editor-panel"));
 }
 
 function getCategoryLabel(
@@ -276,6 +307,38 @@ export default function App() {
   const cloudSaveTimeoutRef = useRef<number | null>(null);
   const cloudRevisionRef = useRef(0);
   const cloudHydratedUserIdRef = useRef<string | null>(null);
+  const cloudSaveQueueRef = useRef<CloudSaveQueue | null>(null);
+
+  if (cloudSaveQueueRef.current === null) {
+    cloudSaveQueueRef.current = createCloudSaveQueue({
+      save: saveCloudWorkspace,
+      onSaved: (stored) => {
+        cloudRevisionRef.current = stored.updatedAt ?? Date.now();
+
+        // 队列里还有更新的快照或新的防抖定时器时保持“同步中”，
+        // 不能让前一个在途请求把后续未保存的快照标成已保存。
+        if (
+          !shouldMarkCloudSyncComplete({
+            hasPendingSave:
+              cloudSaveQueueRef.current?.hasPending() ?? false,
+            isDebounceScheduled: cloudSaveTimeoutRef.current !== null,
+          })
+        ) {
+          return;
+        }
+
+        setCloudSyncError("");
+        setCloudSyncState("synced");
+      },
+      onError: (error) => {
+        setCloudSyncError(
+          error instanceof Error ? error.message : "云端便签保存失败。",
+        );
+        setCloudSyncState("failed");
+      },
+    });
+  }
+
   const skipNextCloudSaveRef = useRef(false);
   const restoredNoteRouteRevisionRef = useRef(-1);
   const activeNoteId = useAppStore((state) => state.activeNoteId);
@@ -522,18 +585,7 @@ export default function App() {
     setCloudSyncState("syncing");
     cloudSaveTimeoutRef.current = window.setTimeout(() => {
       cloudSaveTimeoutRef.current = null;
-      void saveCloudWorkspace(workspace)
-        .then((stored) => {
-          cloudRevisionRef.current = stored.updatedAt ?? Date.now();
-          setCloudSyncError("");
-          setCloudSyncState("synced");
-        })
-        .catch((error) => {
-          setCloudSyncError(
-            error instanceof Error ? error.message : "云端便签保存失败。",
-          );
-          setCloudSyncState("failed");
-        });
+      cloudSaveQueueRef.current?.enqueue(workspace);
     }, CLOUD_SAVE_DELAY_MS);
   }, [
     authStatus,
@@ -547,8 +599,12 @@ export default function App() {
       return;
     }
 
+    const hasPendingLocalSave = () =>
+      cloudSaveTimeoutRef.current !== null ||
+      cloudSaveQueueRef.current?.isSaving() === true;
+
     const intervalId = window.setInterval(() => {
-      if (cloudSaveTimeoutRef.current !== null) {
+      if (hasPendingLocalSave()) {
         return;
       }
 
@@ -556,7 +612,11 @@ export default function App() {
         .then((cloud) => {
           if (
             cloud.workspace &&
-            (cloud.updatedAt ?? 0) > cloudRevisionRef.current
+            shouldApplyPolledWorkspace({
+              polledUpdatedAt: cloud.updatedAt,
+              knownRevision: cloudRevisionRef.current,
+              hasPendingLocalSave: hasPendingLocalSave(),
+            })
           ) {
             cloudRevisionRef.current = cloud.updatedAt ?? 0;
             skipNextCloudSaveRef.current = true;
@@ -579,6 +639,85 @@ export default function App() {
       window.clearInterval(intervalId);
     };
   }, [authUser, replaceWorkspace]);
+
+  useEffect(() => {
+    function handleSaveShortcut(event: KeyboardEvent) {
+      const hasBlockingOverlay =
+        isSettingsOpen ||
+        isLoginOpen ||
+        isChangePasswordOpen ||
+        isShareOpen ||
+        isMoveDialogOpen ||
+        isNoteSidebarOpen ||
+        isCategorySidebarOpen ||
+        isDesktopViewMenuOpen ||
+        isAccountMenuOpen ||
+        isHermesSkillLinkResetConfirmationOpen ||
+        aiReviewNoteId !== null ||
+        pendingAction !== null;
+
+      const isMobileLayout = window.matchMedia("(max-width: 640px)").matches;
+      const isEditing = isMobileLayout
+        ? mobileWorkspaceView === "editor"
+        : desktopWorkspaceView === "editor";
+      const isEditorActive =
+        isEditing &&
+        activeCategoryId !== "trash" &&
+        !hasBlockingOverlay &&
+        !isDesktopSharePreview;
+      const isLoggedIn = canUseCloudWorkspace(authUser);
+
+      handleWorkspaceSaveShortcut(event, {
+        isEditorActive,
+        isTargetAllowed: isSaveShortcutTargetAllowed(event.target),
+        isWriteReady: authStatus === "ready" && Boolean(activeNoteId),
+        isLoggedIn,
+        isCloudHydrated:
+          isLoggedIn && cloudHydratedUserIdRef.current === authUser.id,
+        getLatestWorkspace: getCurrentWorkspace,
+        persistLocalWorkspace: persistNoteWorkspace,
+        clearPendingCloudSave: () => {
+          if (cloudSaveTimeoutRef.current !== null) {
+            window.clearTimeout(cloudSaveTimeoutRef.current);
+            cloudSaveTimeoutRef.current = null;
+          }
+        },
+        enqueueCloudSave: (workspace) => {
+          cloudSaveQueueRef.current?.enqueue(workspace);
+        },
+        markCloudSyncing: () => {
+          setCloudSyncError("");
+          setCloudSyncState("syncing");
+        },
+      });
+    }
+
+    document.addEventListener("keydown", handleSaveShortcut);
+
+    return () => {
+      document.removeEventListener("keydown", handleSaveShortcut);
+    };
+  }, [
+    activeCategoryId,
+    activeNoteId,
+    aiReviewNoteId,
+    authStatus,
+    authUser,
+    desktopWorkspaceView,
+    isAccountMenuOpen,
+    isCategorySidebarOpen,
+    isChangePasswordOpen,
+    isDesktopSharePreview,
+    isDesktopViewMenuOpen,
+    isHermesSkillLinkResetConfirmationOpen,
+    isLoginOpen,
+    isMoveDialogOpen,
+    isNoteSidebarOpen,
+    isSettingsOpen,
+    isShareOpen,
+    mobileWorkspaceView,
+    pendingAction,
+  ]);
 
   useEffect(
     () => () => {
@@ -1104,6 +1243,11 @@ export default function App() {
       }
 
       try {
+        // 先让在途/排队中的自动保存落地，避免退出时的最新快照被旧快照反超。
+        if (cloudSaveQueueRef.current?.isSaving()) {
+          await cloudSaveQueueRef.current.whenIdle();
+        }
+
         await saveCloudWorkspace(getCurrentWorkspace());
       } catch (error) {
         setCloudSyncError(

@@ -116,7 +116,8 @@ test("superadmin 路由、用户管理和首页云同步入口保持连通", () 
   assert.match(appSource, /<ChangePasswordDialog/);
   assert.match(appSource, /changePassword=\{changeUserPassword\}/);
   assert.match(appSource, /getCloudWorkspace\(\)/);
-  assert.match(appSource, /saveCloudWorkspace\(workspace\)/);
+  assert.match(appSource, /save: saveCloudWorkspace/);
+  assert.match(appSource, /cloudSaveQueueRef\.current\?\.enqueue\(workspace\)/);
   assert.match(appSource, /CLOUD_POLL_INTERVAL_MS = 15_000/);
   assert.match(
     appSource,

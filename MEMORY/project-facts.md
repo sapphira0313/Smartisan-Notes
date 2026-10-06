@@ -2,6 +2,48 @@
 
 本文件只记录已从代码或 feedback 测试中确认、预计会影响后续任务的信息。临时调试输出和未经验证的推测不写入这里。
 
+## 2026-10-06：编辑器 Ctrl/Cmd+S 手动保存
+
+- `src/lib/workspace-save.ts` 把快捷键匹配与执行分开：`matchesSaveShortcut` 只
+  判断 Ctrl/Cmd+S（大小写不敏感，排除 Alt/Shift），`canExecuteSaveShortcut` 才排除
+  `repeat`/输入法组合，`handleWorkspaceSaveShortcut` 按固定顺序处理：非编辑态不拦截；
+  编辑态且目标控件允许时命中就 `preventDefault()`，再看就绪状态/可执行性决定是否
+  写入；`performManualWorkspaceSave` 中匿名立即写 `localStorage` 且不碰云端，
+  已登录且已水合时清 650ms 防抖定时器并用 `getCurrentWorkspace()` 提交保存瞬间的
+  最新快照。长按重复事件继续拦截浏览器保存，但不重复写入。
+- `createCloudSaveQueue` 串行 PUT 并把在途期间的连续保存合并为最新快照，新增
+  `hasPending`；`shouldMarkCloudSyncComplete` 要求队列无更新 pending 且没有新的
+  防抖定时器才把状态显示为“已同步”，避免前一个在途请求把后续未保存快照标成已保存。
+  `shouldApplyPolledWorkspace` 在有本地保存时拒绝轮询回灌；logout 仍先 `whenIdle()`
+  再保存最新快照。
+- `src/App.tsx` 用 document `keydown` 监听，仅编辑态（桌面 `desktopWorkspaceView`
+  或手机 `mobileWorkspaceView` 为 `editor`、非回收站、无设置/登录/分享/移动/确认
+  等浮层）命中后 `preventDefault`；`isSaveShortcutTargetAllowed` 要求焦点在
+  `.editor-panel` 内的编辑器控件，搜索框、文件夹下拉、`role="dialog"` 的图片预览/
+  裁剪弹窗保留原有键盘行为，不误存当前文章。水合完成前不写入，登录用户数据不写
+  匿名 `localStorage`，轮询在防抖定时器或 PUT 在途时跳过。
+- `frontend/tests/editor-save-shortcut.test.ts` 用可执行事件处理断言：`repeat` 和
+  输入法组合态 `defaultPrevented=true` 且不重复写入、加载中只拦截不写入、非编辑态
+  不劫持、非编辑器控件不误存、匿名/登录/水合前三条路径、清定时器、提交最新快照、
+  队列串行与 `hasPending`、仅无 pending 且无定时器时显示已同步、失败回调、轮询
+  不回灌。前端 144 项、后端 15 项、DSH 插件 17 项反馈测试及 `npm run build`
+  通过。隔离 Chromium mock 验收确认：匿名保存最新本地内容、登录后立即 PUT 并
+  取消延迟保存、长按不重复写入、失败提示保留正文、加载中不写入、在途 A/B/C
+  只提交 A/C、搜索和弹窗不拦截，以及手机编辑态的 Cmd+S。纳入 1.11.0 发布。
+## 2026-10-06：编辑器异常图片操作按钮不再被裁切
+
+- 编辑器图片视觉区 `.editor-image-visual` 固定 `min-height: 51px`，与桌面和手机端
+  `51px` 操作按钮等高；`overflow: hidden` 保持不变。图片加载失败、仍在加载或本身
+  极矮时视觉区不再塌缩，左上角删除等五个按钮完整可见、可点按。
+- `EditorPanel` 的正文 `<img>` 在 `onLoad` 之外补充 `onError`，两者都调用
+  `snapImageBlockToLineGrid`；图片加载失败时仍会重算图片块补齐到
+  `--editor-line-height` 横线网格的底部补白，不会让后续正文与横线相位错开。
+- `frontend/tests/editor-images.test.ts` 新增断言：视觉区最低高度不小于操作按钮
+  高度，且 `onLoad` 与 `onError` 都触发网格重算。前端 128 项、后端 15 项和
+  DSH 插件 17 项反馈测试及完整生产构建通过。独立 Chromium 在 1440px 与
+  390px 视口下用 HTTP 404 图片验证：五个按钮各有完整 51px 高度、图片块占高
+  为横线行距的整数倍，确认删除可成功移除图片。该修复纳入 1.11.0 发布。
+
 ## 2026-10-02：公众号列表空圆点修复
 
 - Markdown 列表项之间的空行不能经公众号空行保留器转换为 U+2800 占位段落；那会把一组列表拆成多个 `ul`/`ol`，在微信中出现空圆点。公众号渲染现在将相邻列表项合成同一组，列表边界仅保留结构分隔，普通正文空行仍生成完整行高的占位段落。分节边界的列表首尾空行也不输出占位段落。

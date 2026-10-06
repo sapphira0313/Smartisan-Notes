@@ -1387,6 +1387,11 @@ export const EditorPanel = forwardRef<EditorPanelHandle, EditorPanelProps>(funct
                         event.currentTarget.closest(".editor-image-block"),
                       );
                     }}
+                    onError={(event) => {
+                      snapImageBlockToLineGrid(
+                        event.currentTarget.closest(".editor-image-block"),
+                      );
+                    }}
                   />
 
                   {activeImageKey === getEditorImageKey(block) ? (

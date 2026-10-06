@@ -207,3 +207,31 @@ test("编辑器以内联图片块复刻锤子便签，并保留原生 textarea �
   assert.match(styles, /\.image-crop-selection\s*\{/);
   assert.match(styles, /--editor-image-grid-spacer/);
 });
+
+test("图片视觉区为失败、加载中和极矮图片预留操作按钮高度并重算横线网格", () => {
+  const editorSource = readFileSync("src/components/EditorPanel.tsx", "utf8");
+  const styles = readFileSync("src/styles.css", "utf8");
+  const visualMinHeight = Number.parseFloat(
+    styles.match(/\.editor-image-visual\s*\{[^}]*min-height:\s*([0-9.]+)px/s)?.[1] ??
+      "",
+  );
+  const actionButtonHeight = Number.parseFloat(
+    styles.match(
+      /\.editor-image-actions button\s*\{[^}]*height:\s*([0-9.]+)px/s,
+    )?.[1] ?? "",
+  );
+
+  assert.equal(actionButtonHeight, 51);
+  assert.ok(
+    visualMinHeight >= actionButtonHeight,
+    "图片视觉区最低高度不能小于操作按钮高度，否则按钮会被 overflow:hidden 裁切",
+  );
+  assert.match(
+    editorSource,
+    /onLoad=\{\(event\) => \{\s*snapImageBlockToLineGrid\(\s*event\.currentTarget\.closest\("\.editor-image-block"\),\s*\);\s*\}\}/s,
+  );
+  assert.match(
+    editorSource,
+    /onError=\{\(event\) => \{\s*snapImageBlockToLineGrid\(\s*event\.currentTarget\.closest\("\.editor-image-block"\),\s*\);\s*\}\}/s,
+  );
+});
