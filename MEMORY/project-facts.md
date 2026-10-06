@@ -2,6 +2,36 @@
 
 本文件只记录已从代码或 feedback 测试中确认、预计会影响后续任务的信息。临时调试输出和未经验证的推测不写入这里。
 
+## 2026-10-06：1.11.0 编辑器修复生产发布
+
+- 发布标签 `1.11.0` 与提交 `5131c4c31986c63484ca05c490ab2c660a1c2a8e` 已推送
+  GitHub `main` 和 `codex/editor-save-release`；生产 `hermes-v2fy` 固定检出该标签。
+  本次只发布图片区域最小高度与 Ctrl/Cmd+S 保存；另一任务的公众号行高改动仍未发布。
+  原工作目录里的未提交改动保留，发布使用独立工作区。
+- 发布目录运行 `npm ci`、144 项前端、15 项后端、17 项 DSH 插件反馈测试和
+  `npm run build` 全部通过。全新工作区需先安装 `dsh-plugin` 自己的锁文件依赖、
+  生成 `dist`，再跑依赖真实页面导出的插件测试。
+- 生产后端镜像为
+  `546a462fbf8b1436573cb9daec843913b5e703ba60b7f490c0da2329af2a4cf1`，前端镜像为
+  `74f90f87761891d37a885c9b31ad286bc7275576df17103f064c164c11c85640`。
+  两个 Compose 容器 running、restart count 为 0，检查的 188 行日志无持续错误。
+  `.env` 中管理员、会话、七牛和 AI 必需配置均存在，只验证存在状态、不输出值。
+- 部署前将 `storage/images` 和 `storage/data` 备份到
+  `/home/hermes/backups/notes/releases/1.11.0-20261006T043021Z-predeploy/storage.tar.gz`；
+  备份约 1.5GB，目录 `0700`、归档 `0600`，gzip 完整性检查通过，SHA-256 为
+  `04d654134a9336451cb411750bfd24347ee459914368446e7d9fce7a2c92a451`。
+  备份内、部署前后 `notes-data.json` 的 SHA-256 均为
+  `7268930514063069e3a82407116e467000b2d9a92cb0e12536fa8151945b16e3`；存储完整保留。
+- 本机与公网健康检查成功，AI 可用；公开 `/changelog` 首版本为
+  `1.11.0 - 2026-10-06` 且无未发布区。图片导入、HTTPS 图片读取、带图 PNG
+  （1980 × 1404）和 ZIP 导出成功。管理员 HTTPS 登录、Secure/HttpOnly Cookie、
+  云工作区只读和 `/superadmin` 页面验证通过。
+- 公网隔离 Chromium 在 1440px 和 390px 下验证失效图片五个操作按钮各有完整
+  51px 高度、删除成功、横线对齐；Ctrl/Cmd+S 保存、长按、加载中、失败提示、
+  在途合并及搜索/弹窗边界通过，匿名文章刷新后保留。云端快捷键请求使用 mock
+  验收，未写真实账号便签，未调用真实微信草稿或七牛上传。切换期间两次短暂
+  连接失败后恢复，没有重启循环。可回滚 `1.10.7/5be84f3b765a229d95acde8a11e98c56ccfdf31c`。
+
 ## 2026-10-06：编辑器 Ctrl/Cmd+S 手动保存
 
 - `src/lib/workspace-save.ts` 把快捷键匹配与执行分开：`matchesSaveShortcut` 只
