@@ -981,6 +981,319 @@ test("WechatArticle 列表后接图片时不插入空圆点", () => {
   assert.match(html, /适合办公党<\/li>\s*<\/ul>\s*<p[^>]*><span data-smartisan-image=/);
 });
 
+test("WechatArticle 列表项间的物理空行转为视觉间距而不是新的空列表项", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "列表间距测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "1. 第一条\n\n\n2. 第二条\n\n\n3. 第三条",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<ol\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 3);
+  assert.equal((html.match(/<p\b/g) ?? []).length, 0);
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:52\.5px[^>]*>第一条<\/li><li[^>]*padding-bottom:52\.5px[^>]*>第二条<\/li><li[^>]*>第三条<\/li>/,
+  );
+  assert.equal((html.match(/<li[^>]*padding-bottom/g) ?? []).length, 2);
+  // 容器内不能残留可能被微信加工为额外列表项目的换行文本节点或空占位段落。
+  assert.doesNotMatch(html, /<\/li>\s*\n\s*<li/);
+  assert.doesNotMatch(html, /<li[^>]*>\s*<\/li>/);
+  assert.doesNotMatch(html, /\u2800/);
+});
+
+test("WechatArticle 紧凑列表不写间距且保持内联文本", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "紧凑列表测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- 一\n- 二\n- 三",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<ul\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 3);
+  assert.doesNotMatch(html, /<li[^>]*padding-bottom/);
+  assert.match(html, /<li[^>]*>一<\/li><li[^>]*>二<\/li><li[^>]*>三<\/li>/);
+});
+
+test("WechatArticle 按每个列表项的空行数写入不同间距", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "混合间距测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "1. a\n\n2. b\n\n\n\n3. c\n\n4. d",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*>a<\/li><li[^>]*padding-bottom:78\.75px[^>]*>b<\/li><li[^>]*padding-bottom:26\.25px[^>]*>c<\/li><li[^>]*>d<\/li>/,
+  );
+});
+
+test("WechatArticle 有序列表保留起始编号并单独计算间距", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "起始编号测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "7. 起\n\n\n8. 次",
+      theme: "default",
+    }),
+  );
+
+  assert.match(html, /<ol start="7"/);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 2);
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:52\.5px[^>]*>起<\/li><li[^>]*>次<\/li>/,
+  );
+});
+
+test("WechatArticle 嵌套列表分别记录各自空行间距", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "嵌套列表测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- 外层\n\n  - 内层一\n\n  - 内层二\n\n- 结尾",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<ul\b/g) ?? []).length, 2);
+  assert.equal((html.match(/<li\b/g) ?? []).length, 4);
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><p[^>]*>外层<\/p><ul/,
+  );
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*>内层一<\/li><li[^>]*>内层二<\/li>/,
+  );
+  assert.match(html, /<li[^>]*>结尾<\/li>/);
+});
+
+test("WechatArticle 多行与多段列表项保留段落结构", () => {
+  const multilineHtml = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "多行列表测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "1. 第一行\n   第二行\n\n2. 下一项",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    multilineHtml,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><p[^>]*>第一行<\/p><p[^>]*>第二行<\/p><\/li><li[^>]*>下一项<\/li>/,
+  );
+
+  const complexHtml = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "多段列表测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "1. 第一段\n\n   第二段\n\n2. 下一项",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    complexHtml,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><p[^>]*>第一段<\/p><p[^>]*>第二段<\/p><\/li><li[^>]*>下一项<\/li>/,
+  );
+  assert.doesNotMatch(complexHtml, /\u2800/);
+});
+
+test("WechatArticle 列表内代码块保留空行且不插入占位段落", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "列表代码测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- 条目\n\n  ```text\n  第一行\n\n  第二行\n  ```\n\n- 其他",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><p[^>]*>条目<\/p><pre/,
+  );
+  assert.match(html, /第一行\n\n第二行/);
+  assert.match(html, /<li[^>]*>其他<\/li>/);
+  assert.doesNotMatch(html, /\u2800/);
+});
+
+test("WechatArticle 任务列表与行内空格保持原样", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "任务列表测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- [ ] 待办\n\n- [x] 完成",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/<input type="checkbox"/g) ?? []).length, 2);
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><input type="checkbox" disabled=""[^>]*\/> 待办<\/li>/,
+  );
+  assert.match(
+    html,
+    /<li[^>]*><input type="checkbox" disabled=""[^>]*checked=""[^>]*\/> 完成<\/li>/,
+  );
+
+  const spacesHtml = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "行内空格测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- 保留  两个空格\n\n- 第二个",
+      theme: "default",
+    }),
+  );
+
+  assert.match(spacesHtml, /<li[^>]*>保留  两个空格<\/li>/);
+});
+
+test("WechatArticle 紧凑列表保留格式化节点之间的行内空格", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "紧凑行内空格测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- **one** *two* `three`\n- second",
+      theme: "default",
+    }),
+  );
+
+  // strong → em 边界可能存在 WORD JOINER，但分隔普通空格必须保留。
+  assert.match(
+    html,
+    /<li[^>]*><strong[^>]*>one<\/strong> \u2060?<em[^>]*>two<\/em> <code[^>]*>three<\/code><\/li><li[^>]*>second<\/li>/,
+  );
+  assert.doesNotMatch(html, /<\/strong><em/);
+  assert.doesNotMatch(html, /<\/em><code/);
+});
+
+test("WechatArticle 松散列表保留格式化节点之间的行内空格", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "松散行内空格测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- **one** *two* `three`\n\n- second",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><strong[^>]*>one<\/strong> \u2060?<em[^>]*>two<\/em> <code[^>]*>three<\/code><\/li><li[^>]*>second<\/li>/,
+  );
+  assert.doesNotMatch(html, /<\/strong><em/);
+  assert.doesNotMatch(html, /<\/em><code/);
+});
+
+test("WechatArticle 紧凑多行列表项保留行内换行", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "紧凑多行换行测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "- 第一行\n  第二行\n- 下一项",
+      theme: "default",
+    }),
+  );
+
+  assert.match(html, /<li[^>]*>第一行\n第二行<\/li><li[^>]*>下一项<\/li>/);
+  assert.doesNotMatch(html, /第一行第二行/);
+});
+
+test("WechatArticle 列表内行内代码空白保持不变", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "行内代码空白测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "1. `code  with  spaces`\n\n2. next",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*><code[^>]*>code  with  spaces<\/code><\/li><li[^>]*>next<\/li>/,
+  );
+});
+
+test("WechatArticle 处理 CRLF 列表空行并去掉换行文本节点", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "CRLF 列表测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "1. 甲\r\n\r\n\r\n2. 乙",
+      theme: "default",
+    }),
+  );
+
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:52\.5px[^>]*>甲<\/li><li[^>]*>乙<\/li>/,
+  );
+  assert.doesNotMatch(html, /<\/li>\s*\n\s*<li/);
+});
+
+test("WechatArticle 保留列表外空行且跳过列表相邻空行", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "列表边界间距测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "前文\n\n\n列表前\n\n- 甲\n\n- 乙\n\n列表后\n\n\n结尾",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/>\u2800<\/p>/g) ?? []).length, 4);
+  assert.match(
+    html,
+    /<li[^>]*padding-bottom:26\.25px[^>]*>甲<\/li><li[^>]*>乙<\/li>/,
+  );
+  assert.doesNotMatch(html, /<p[^>]*>\u2800<\/p>\s*<ul/);
+  assert.doesNotMatch(html, /<\/ul>\s*<p[^>]*>\u2800<\/p>/);
+});
+
+test("WechatArticle 只用空行占位段落处理引用外侧而不进入引用内部", () => {
+  const html = renderToStaticMarkup(
+    createElement(WechatArticle, {
+      footerBrand: "引用空行测试",
+      footerHammerUrl: "https://cdn.example.com/hammer.png",
+      footerVia: "via Feedback",
+      markdown: "> 引用一\n>\n> 引用二\n\n正文",
+      theme: "default",
+    }),
+  );
+
+  assert.equal((html.match(/>\u2800<\/p>/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /<blockquote[^>]*>[\s\S]*?\u2800[\s\S]*?<\/blockquote>/);
+});
+
 test("WechatArticle 为七种主题的普通与居中正文写入明确字号和像素行高", () => {
   const themes = Object.keys(NOTE_CARD_THEME_STYLES) as NoteCardThemeId[];
 

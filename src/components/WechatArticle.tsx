@@ -11,7 +11,6 @@ import {
   detachUnindentedImagesFromLists,
   MARKDOWN_BLANK_LINE,
   MARKDOWN_LIST_ITEM_PATTERN,
-  preserveMarkdownBlankLines,
   splitSections,
 } from "../lib/markdown.js";
 import {
@@ -19,6 +18,10 @@ import {
   type NoteCardThemeColors,
   type NoteCardThemeStyle,
 } from "../lib/note-card-theme-styles.js";
+import {
+  remarkWechatListSpacing,
+  WECHAT_LIST_GAP_ATTRIBUTE,
+} from "../lib/wechat-markdown.js";
 import type { NoteCardThemeId, NoteSection } from "../types/app.js";
 import { remarkManualLineParagraphs } from "./MarkdownText.js";
 
@@ -72,6 +75,72 @@ const bazhaheiBlockGap = "0.8em";
 const telegraphBlockGap = "0.667em";
 // 用不可见的非空白字符撑起完整行盒，避免富文本粘贴把空行当作纯空白段落。
 const wechatBlankLineContent = "\u2800";
+
+function isWhitespaceOnlyString(node: ReactNode): node is string {
+  return typeof node === "string" && node.trim() === "";
+}
+
+// Markdown 转换会在列表块之间插入只含换行的结构文本节点；这类格式空白可能被
+// 微信加工为额外列表项目，需要移除。行内用于分隔格式化节点的普通空格必须保留。
+function isStructuralWhitespaceString(node: ReactNode): boolean {
+  return isWhitespaceOnlyString(node) && /[\r\n]/.test(node);
+}
+
+// ul/ol 的直接子节点只会是 li 与块间结构换行，可以安全移除全部纯空白字符串。
+function withoutDirectWhitespace(children: ReactNode): ReactNode[] {
+  return Children.toArray(children).filter(
+    (child) => !isWhitespaceOnlyString(child),
+  );
+}
+
+const WECHAT_BLOCK_COMPONENT_KEYS = [
+  "p",
+  "ul",
+  "ol",
+  "pre",
+  "blockquote",
+  "table",
+  "hr",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+] as const;
+
+// li 内可能是行内容。只移除紧邻块级子节点的结构换行，保留行内文本之间的
+// 手动换行和格式化节点之间的普通空格。
+function withoutStructuralWhitespace(
+  children: ReactNode,
+  components: Components,
+): ReactNode[] {
+  const nodes = Children.toArray(children);
+  const isBlock = (child: ReactNode) =>
+    isValidElement(child) &&
+    WECHAT_BLOCK_COMPONENT_KEYS.some((key) => child.type === components[key]);
+
+  return nodes.filter((child, index) => {
+    if (!isStructuralWhitespaceString(child)) {
+      return true;
+    }
+
+    return !isBlock(nodes[index - 1]) && !isBlock(nodes[index + 1]);
+  });
+}
+
+function readWechatListGap(properties: unknown): number {
+  if (!properties || typeof properties !== "object") {
+    return 0;
+  }
+
+  const value = (properties as Record<string, unknown>)[
+    WECHAT_LIST_GAP_ATTRIBUTE
+  ];
+  const parsed = typeof value === "number" ? value : Number(value);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
 
 interface WechatRenderContext {
   baseHeadingStyle: CSSProperties;
@@ -413,7 +482,7 @@ function createMarkdownComponents(
         lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
       }}
     >
-      {children}
+      {withoutDirectWhitespace(children)}
     </ul>
   ),
   ol: ({ children, start }) => (
@@ -432,26 +501,45 @@ function createMarkdownComponents(
         lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
       }}
     >
-      {children}
+      {withoutDirectWhitespace(children)}
     </ol>
   ),
-  li: ({ children }) => (
-    <li
-      style={{
-        boxSizing: "border-box",
-        minWidth: "0",
-        maxWidth: "100% !important",
-        margin: isTelegraph ? "0 0 14px" : "0",
-        paddingLeft: "0",
-        color: colors.text,
-        fontSize: bodyFontSize,
-        fontWeight: 400,
-        lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
-      }}
-    >
-      {children}
-    </li>
-  ),
+  li: ({ children, node }) => {
+    const blankLines = readWechatListGap(node?.properties);
+    const directChildren = withoutStructuralWhitespace(children, components);
+    const onlyChild = directChildren.length === 1 ? directChildren[0] : null;
+    // 松散列表的单个段落可能被微信重新编号，这里内联呈现其原始子节点。
+    const content =
+      isValidElement<{ children?: ReactNode }>(onlyChild) &&
+      onlyChild.type === components.p
+        ? onlyChild.props.children
+        : directChildren;
+
+    return (
+      <li
+        style={{
+          boxSizing: "border-box",
+          minWidth: "0",
+          maxWidth: "100% !important",
+          margin: isTelegraph ? "0 0 14px" : "0",
+          paddingLeft: "0",
+          ...(blankLines > 0
+            ? {
+                paddingBottom: `${Number(
+                  (blankLines * bodyFontSizePx * bodyLineHeight).toFixed(4),
+                )}px`,
+              }
+            : {}),
+          color: colors.text,
+          fontSize: bodyFontSize,
+          fontWeight: 400,
+          lineHeight: pxLineHeight(bodyFontSizePx, bodyLineHeight),
+        }}
+      >
+        {content}
+      </li>
+    );
+  },
   code: ({ children, className, style }) => (
     <code
       className={className}
@@ -658,16 +746,17 @@ function WechatSectionContent({
       {blankParagraphs(leadingBlankLines)}
       {body ? (
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkManualLineParagraphs]}
+          remarkPlugins={[
+            remarkGfm,
+            remarkWechatListSpacing,
+            remarkManualLineParagraphs,
+          ]}
           components={components}
         >
-          {preserveMarkdownBlankLines(
-            protectWechatInlineBoundaries(
-              detachUnindentedImagesFromLists(
-                removeTrailingEmptyListItems(body),
-              ),
+          {protectWechatInlineBoundaries(
+            detachUnindentedImagesFromLists(
+              removeTrailingEmptyListItems(body),
             ),
-            { suppressListAdjacentBlankLines: true },
           )}
         </ReactMarkdown>
       ) : null}

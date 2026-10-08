@@ -487,6 +487,14 @@ test("Express 提供健康检查和内容寻址图片存储", async (context) =>
           "",
           "相同内容的第二个地址：",
           `![相同内容的第二个地址](${publicImageBaseUrl}${imported.path}?duplicate=1)`,
+          "",
+          "1. 第一条",
+          "",
+          "",
+          "2. 第二条",
+          "",
+          "",
+          "3. 第三条",
         ].join("\n"),
       }),
     });
@@ -599,6 +607,11 @@ test("Express 提供健康检查和内容寻址图片存储", async (context) =>
     assert.match(wechat.html, /<ol start="9"/);
     assert.match(wechat.html, /<ol start="10"/);
     assert.match(wechat.html, /图片后的编号仍可见<\/li>/);
+    assert.match(
+      wechat.html,
+      /<li[^>]*padding-bottom:52\.5px[^>]*>第一条<\/li><li[^>]*padding-bottom:52\.5px[^>]*>第二条<\/li><li[^>]*>第三条<\/li>/,
+    );
+    assert.doesNotMatch(wechat.html, /<\/li>\s*\n\s*<li/);
     assert.match(wechat.html, /data-smartisan-image="true"/);
     assert.match(wechat.html, /data-smartisan-image-frame="android"/);
     assert.match(wechat.html, /padding:4\.2px/);

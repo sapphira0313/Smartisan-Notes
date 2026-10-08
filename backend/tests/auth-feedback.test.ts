@@ -590,7 +590,7 @@ test("管理员可使用便签服务、创建用户且各账号云工作区严�
         footerBrand: "由 feedback 便签发送",
         footerVia: "Powered by feedback",
         markdown:
-          "# Alice 的公众号草稿\n\n正文内容\n\n\n## 第一节\n\n\n第二段",
+          "# Alice 的公众号草稿\n\n正文内容\n\n\n## 第一节\n\n\n第二段\n\n1. 第一条\n\n\n2. 第二条\n\n\n3. 第三条",
         theme: "default",
       },
       aliceCookie,
@@ -643,6 +643,12 @@ test("管理员可使用便签服务、创建用户且各账号云工作区严�
       5,
       "实际提交给微信的草稿应保留正文和小标题两侧的每一个空行",
     );
+    assert.match(
+      aliceDraftArticle.content,
+      /<li[^>]*padding-bottom:52\.5px[^>]*>第一条<\/li><li[^>]*padding-bottom:52\.5px[^>]*>第二条<\/li><li[^>]*>第三条<\/li>/,
+      "实际提交给微信的草稿应把列表项之间的空行转成间距而不是新的空列表项",
+    );
+    assert.doesNotMatch(aliceDraftArticle.content, /<\/li>\s*\n\s*<li/);
     assert.doesNotMatch(
       aliceDraftArticle.content,
       /<(?:table|caption|colgroup|col|tbody|tr|td)\b/,
